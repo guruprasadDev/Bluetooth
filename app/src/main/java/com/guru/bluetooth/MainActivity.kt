@@ -1,64 +1,40 @@
 package com.guru.bluetooth
 
-import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
+import android.content.IntentFilter
+import android.graphics.Color
 import android.os.Bundle
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import com.guru.bluetooth.databinding.ActivityMainBinding
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.guru.bluetooth.extensions.showToast
+import com.guru.bluetooth.helper.PermissionsHelper
+import com.guru.bluetooth.server.BluetoothServerController
 
 class MainActivity : AppCompatActivity() {
+
     private lateinit var binding: ActivityMainBinding
-    private val bluetoothAdapter: BluetoothAdapter? by lazy { BluetoothAdapter.getDefaultAdapter() }
-    private var bluetoothDevice: BluetoothDevice? = null
-    private val bluetoothFileTransfer by lazy { BluetoothFileTransfer(this) }
+    private var bluetoothAdapter: BluetoothAdapter? = null
+    private val permissionsHelper = PermissionsHelper(this)
+    private lateinit var pairedDevices: Set<BluetoothDevice>
+    private lateinit var discoveredDevices: ArrayList<BluetoothDevice>
+    private var isInScanningMode: Boolean = false
     private val requestEnableBtLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode != RESULT_OK) {
-            Toast.makeText(this, "Bluetooth must be enabled", Toast.LENGTH_SHORT).show()
+            showToast("Bluetooth must be enabled")
             finish()
         }
-    }
-
-    private val requestDiscoverableLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode != RESULT_OK) {
-            Toast.makeText(this, "Device must be discoverable", Toast.LENGTH_SHORT).show()
-            finish()
-        } else {
-            startServer()
-        }
-    }
-
-    private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            if (isGranted) {
-                scanForDevices(this)
-            } else {
-                Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
-                finish()
-            }
-        }
-
-    private val deviceClickListener = { device: BluetoothDevice ->
-        bluetoothDevice = device
-        connectToDevice(device)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,129 +42,207 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setupViews()
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+
+        permissionsHelper.requestAccessCoarseLocationPermissionIfNotGranted()
+        permissionsHelper.requestReadExternalStoragePermissionIfNotGranted()
+
+        discoveredDevices = ArrayList()
+
+        val deviceFilter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+        registerReceiver(receiver, deviceFilter)
+
+        val deviceNameFilter = IntentFilter(BluetoothDevice.ACTION_NAME_CHANGED)
+        registerReceiver(nameReceiver, deviceNameFilter)
+
+        initListener()
         enableBluetooth()
+        launchEnableBluetoothActivity()
+        launchEnableDiscoverableActivity()
     }
 
-    private fun setupViews() {
-        binding.selectFileButton.setOnClickListener {
-            selectFile()
-        }
-
-        binding.scanButton.setOnClickListener {
-            scanForDevices(this)
-        }
-
-        binding.sendButton.setOnClickListener {
-            val fileUri = binding.fileUriTextView.text.toString()
-            if (fileUri.isNotEmpty() && bluetoothDevice != null) {
-                sendFile(getFileUri(fileUri))
-            } else {
-                Toast.makeText(
-                    this,
-                    "Please select a file and connect to a device",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-        binding.receiveButton.setOnClickListener {
-            CoroutineScope(Dispatchers.IO).launch {
-                bluetoothFileTransfer.receiveFile()
-            }
-        }
+    private fun initListener() {
+        binding.mainEnterZone.setOnClickListener { enterScanningMode() }
+        binding.mainRefreshUserList.setOnClickListener { refreshList() }
     }
 
     private fun enableBluetooth() {
-        if (bluetoothAdapter == null) {//let
-            Toast.makeText(this, "Device does not support Bluetooth", Toast.LENGTH_SHORT).show()
-            finish()
+        if (bluetoothAdapter == null) {
+            showToast("This device does not support Bluetooth")
+            this.finish()
+            return
         }
 
-        if (!bluetoothAdapter!!.isEnabled) {
+        if (bluetoothAdapter?.isEnabled != true) {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             requestEnableBtLauncher.launch(enableBtIntent)
         }
     }
-    
-    private fun startServer() {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                bluetoothFileTransfer.startServer()
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Failed to start server: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+
+    private val receiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val action: String? = intent?.action
+            when (action) {
+                BluetoothDevice.ACTION_FOUND -> {
+                    val device: BluetoothDevice? =
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                    val index = discoveredDevices.indexOf(device)
+                    if (index == -1) {
+                        discoveredDevices.add(device!!)
+                    } else {
+                        discoveredDevices[index] = device!!
+                    }
                 }
             }
         }
     }
 
-    private fun scanForDevices(activity: Activity) {
-        if (ContextCompat.checkSelfPermission(
-                activity,
-                android.Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
-                0
-            )
+    private val nameReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val action: String? = intent?.action
+            when (action) {
+                BluetoothDevice.ACTION_NAME_CHANGED -> {
+                    val device: BluetoothDevice? =
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                    val index = discoveredDevices.indexOf(device!!)
+                    if (index == -1) {
+                        discoveredDevices.add(device)
+                    } else {
+                        discoveredDevices[index] = device
+                    }
+                }
+            }
+        }
+    }
+
+    private fun refreshList() {
+        if (!isInScanningMode) {
+            showToast("Please enter the scanning mode first")
+            return
+        }
+
+        pairedDevices = bluetoothAdapter?.bondedDevices as Set<BluetoothDevice>
+        val list: ArrayList<BluetoothDevice> = ArrayList()
+        val listDeviceNames: ArrayList<String> = ArrayList()
+        if (pairedDevices.isNotEmpty()) {
+            for (device: BluetoothDevice in pairedDevices) {
+                list.add(device)
+                listDeviceNames.add(device.name)
+            }
         } else {
-            requestPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+            showToast("No paired bluetooth devices found")
         }
-    }
 
-    private fun selectFile() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            type = "*/*"
-            addCategory(Intent.CATEGORY_OPENABLE)
-        }
-        startActivityForResult(intent, 0)
-    }
-
-    private fun getFileUri(uriString: String) = Uri.parse(uriString)
-
-    private fun connectToDevice(device: BluetoothDevice) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                bluetoothFileTransfer.connectToDevice(device)
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Failed to connect to device: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+        if (discoveredDevices.isNotEmpty()) {
+            for (device: BluetoothDevice in discoveredDevices) {
+                list.add(device)
+                if (device.name == null) {
+                    listDeviceNames.add(device.address)
+                } else {
+                    listDeviceNames.add(device.name)
                 }
             }
+        } else {
+            showToast("No new bluetooth devices found")
+        }
+
+        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, listDeviceNames)
+        binding.mainSelectUserList.adapter = adapter
+        binding.mainSelectUserList.onItemClickListener =
+            AdapterView.OnItemClickListener { _, _, position, _ ->
+                val device: BluetoothDevice = list[position]
+
+                val intent = Intent(this, FilePickerActivity::class.java)
+                intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
+                startActivity(intent)
+            }
+    }
+
+    private fun launchEnableBluetoothActivity() {
+        val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+        enableBluetooth.launch(enableBtIntent)
+    }
+
+    private val enableBluetooth = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        handleEnableBluetoothActivityResult(result.resultCode)
+    }
+
+    private fun handleEnableBluetoothActivityResult(resultCode: Int) {
+        if (resultCode == Activity.RESULT_OK) {
+            if (bluetoothAdapter?.isEnabled == true) {
+                showToast("Bluetooth has been enabled")
+            } else {
+                showToast("Bluetooth has been disabled")
+            }
+        } else if (resultCode == Activity.RESULT_CANCELED) {
+            showToast("Bluetooth has been cancelled")
         }
     }
 
-    private fun sendFile(fileUri: Uri) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                bluetoothFileTransfer.sendFile(fileUri)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "File sent successfully",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Failed to send file: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
+    private fun launchEnableDiscoverableActivity() {
+        val enableDiscoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+        enableDiscoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+        enableDiscoverable.launch(enableDiscoverableIntent)
+    }
+
+    private val enableDiscoverable = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        handleEnableDiscoverableActivityResult(result.resultCode)
+    }
+
+    private fun handleEnableDiscoverableActivityResult(resultCode: Int) {
+        if (resultCode == Activity.RESULT_CANCELED) {
+            showToast("Bluetooth has been cancelled")
         }
+    }
+
+    private fun changeTextToConnected(statusTextView: TextView) {
+        statusTextView.text = "Scanning Mode"
+        statusTextView.setTextColor(Color.GREEN)
+
+        binding.mainEnterZone.text = "Exit Scanning Mode"
+    }
+
+    private fun changeTextToDisconnected(statusTextView: TextView) {
+        statusTextView.text = "Not in Scanning Mode"
+        statusTextView.setTextColor(Color.RED)
+
+        binding.mainEnterZone.text = "Enter Scanning Mode"
+    }
+
+    private fun enterScanningMode() {
+        if (isInScanningMode) {
+            exitScanningMode()
+        } else {
+            if (!bluetoothAdapter!!.isEnabled) {
+                bluetoothAdapter!!.enable()
+            }
+
+            val discoverableIntent: Intent =
+                Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300) //5 mins
+                }
+            startActivity(discoverableIntent)
+            BluetoothConnectionService().startServer()
+
+            changeTextToConnected(binding.statusTitle)
+            isInScanningMode = true
+            refreshList()
+        }
+    }
+
+    private fun exitScanningMode() {
+        BluetoothServerController().cancel()
+        bluetoothAdapter?.cancelDiscovery()
+
+        binding.mainSelectUserList.adapter = null
+        showToast("Discoverability is disabled for now")
+        changeTextToDisconnected(binding.statusTitle)
+        isInScanningMode = false
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(receiver)
+        unregisterReceiver(nameReceiver)
     }
 }
-
