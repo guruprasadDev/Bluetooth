@@ -49,6 +49,6 @@ class BluetoothServerController : Thread() {
 
     fun cancel() {
         this.isCancelled = true
-        this.serverSocket!!.close()
+        this.serverSocket?.close()
     }
 }
