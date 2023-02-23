@@ -1,25 +1,28 @@
 package com.guru.bluetooth
 
-import android.annotation.SuppressLint
+import android.Manifest
 import android.bluetooth.BluetoothDevice
+import android.content.DialogInterface
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.AlarmClock
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import com.guru.bluetooth.databinding.ActivityFilePickerBinding
 import com.guru.bluetooth.extensions.showToast
 import com.guru.bluetooth.helper.FilePickerHelper
+import com.guru.bluetooth.helper.createAlertDialog
 import java.io.File
 
 class FilePickerActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityFilePickerBinding
     private var device: BluetoothDevice? = null
-    private var fileURI: String = ""
+    private var fileURI: String? = null
 
     @RequiresApi(33)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,72 +36,80 @@ class FilePickerActivity : AppCompatActivity() {
 
     private fun initListener() {
         binding.apply {
-            fileSelectButton.setOnClickListener { filePicker() }
-            fileSelectorSend.setOnClickListener { send() }
+            fileSelectButton.setOnClickListener { chooseFile() }
+            fileSelectorSend.setOnClickListener { sendFile() }
         }
     }
 
-    @RequiresApi(33)
-    @SuppressLint("MissingPermission")
-    fun setDeviceInfoNameValue() {
+    private fun setDeviceInfoNameValue() {
         //device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
         device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-        binding.deviceInfoNameValue.text.apply {
-            if (device?.name == null) {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) != PackageManager.PERMISSION_GRANTED
+        )
+            binding.deviceInfoNameValue.text = if (device?.name == null) {
                 device?.address
             } else {
                 device?.name
             }
-        }
     }
 
-    private fun filePicker() {
+    private fun chooseFile() {
         getContent.launch("*/*")
     }
 
-    private fun send() {
-        if (fileURI == "") {
+    private fun sendFile() {
+        if (fileURI == null) {
             showToast("Please choose a file first")
         } else {
-            val alertDialogBuilder = AlertDialog.Builder(this)
-            alertDialogBuilder.apply {
-                setTitle("Confirmation")
-                setMessage("Are you sure want to send this file?")
-                setPositiveButton("Send") { _, _ -> checkLessThan5MB(fileURI) }
-                setNegativeButton("Cancel") { _, _ ->
-                    showToast("Cancelled the file sending process")
-                }
-                alertDialogBuilder.show()
-            }
+            val alertDialog = createAlertDialog(
+                this,
+                "Confirmation",
+                "Are you sure want to send this file?",
+                "Send",
+                "Cancel",
+                { _, _ -> fileURI?.let { sendFileIfSizeIsLessThan5MB(it) } },
+                { _, _ -> showToast("Cancelled the file sending process") }
+            )
+            alertDialog.show()
         }
     }
 
-    private fun checkLessThan5MB(fileURI: String) {
-        val fiveMB = 1024 * 1024 * 5;
+    private fun sendFileIfSizeIsLessThan5MB(fileURI: String) {
+        val fiveMB = 1024 * 1024 * 5
         val file = File(fileURI)
 
-        if (file.readBytes().size > fiveMB) {
-            val alertDialogBuilder = AlertDialog.Builder(this)
-            alertDialogBuilder.setTitle("File too large")
-            alertDialogBuilder.setMessage("This file is larger than the 5MB Limit")
-            alertDialogBuilder.setPositiveButton("OK") { _, _ ->
-                showToast("File sending failed")
-            }
-            alertDialogBuilder.show()
-        } else {
+        fun sendFileToReceiver(device: BluetoothDevice, fileURI: String) {
             val intent = Intent(this, FileSenderActivity::class.java)
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
             intent.putExtra(AlarmClock.EXTRA_MESSAGE, fileURI)
             startActivity(intent)
+        }
+
+        if (file.readBytes().size > fiveMB) {
+            val alertDialog = createAlertDialog(
+                this,
+                "File too large",
+                "This file is larger than the 5MB Limit",
+                "OK",
+                "",
+                DialogInterface.OnClickListener { _, _ -> showToast("File sending failed") },
+                null
+            )
+            alertDialog.show()
+        } else {
+            device?.let { sendFileToReceiver(it, fileURI) }
         }
     }
 
     private val getContent =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let {
-                val selectedFilePath = FilePickerHelper.getPath(this, it)
+                val selectedFilePath = FilePickerHelper.getPath(this, uri)
                 binding.fileInfoNameValue.text = selectedFilePath
-                fileURI = selectedFilePath!!
+                fileURI = selectedFilePath
             } ?: showToast("File choosing cancelled")
         }
 }
