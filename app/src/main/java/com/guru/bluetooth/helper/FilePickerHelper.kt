@@ -78,10 +78,12 @@ class FilePickerHelper {
             val projection = arrayOf(column)
 
             try {
-                cursor = context.contentResolver.query(
-                    uri!!, projection,
-                    selection, selectionArgs, null
-                )
+                cursor = uri?.let {uri->
+                    context.contentResolver.query(
+                        uri, projection,
+                        selection, selectionArgs, null
+                    )
+                }
                 if (cursor != null && cursor.moveToFirst()) {
                     val columnIndex = cursor.getColumnIndexOrThrow(column)
                     return cursor.getString(columnIndex)
