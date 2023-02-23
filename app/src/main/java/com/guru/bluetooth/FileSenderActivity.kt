@@ -3,9 +3,9 @@ package com.guru.bluetooth
 import android.bluetooth.BluetoothDevice
 import android.content.Intent
 import android.os.Bundle
-import android.provider.AlarmClock
 import androidx.appcompat.app.AppCompatActivity
 import com.guru.bluetooth.databinding.ActivityFileSenderBinding
+import com.guru.bluetooth.utils.Constants.EXTRA_MESSAGE
 
 class FileSenderActivity : AppCompatActivity() {
     private lateinit var binding: ActivityFileSenderBinding
@@ -17,8 +17,8 @@ class FileSenderActivity : AppCompatActivity() {
 
         val device: BluetoothDevice? = getBluetoothDeviceFromIntent(intent)
         val fileURI: String? = getFileUriFromIntent(intent)
-        val sendingResult = device?.let { startBluetoothClient(it, fileURI!!) }
-        updateSendingResult(sendingResult == true)
+        val sendingResult: Boolean? = device?.let { startBluetoothClient(it, fileURI) }
+        sendingResult?.let { updateSendingResult(it) }
     }
 
     private fun getBluetoothDeviceFromIntent(intent: Intent): BluetoothDevice? {
@@ -26,18 +26,18 @@ class FileSenderActivity : AppCompatActivity() {
     }
 
     private fun getFileUriFromIntent(intent: Intent): String? {
-        return intent.getStringExtra(AlarmClock.EXTRA_MESSAGE)
+        return intent.getStringExtra(EXTRA_MESSAGE)
     }
 
-    private fun startBluetoothClient(device: BluetoothDevice, fileUri: String): Boolean {
-        return BluetoothConnectionService().startClient(device, fileUri)
+    private fun startBluetoothClient(device: BluetoothDevice, fileUri: String?): Boolean? {
+        return fileUri?.let { BluetoothConnectionService().startClient(device, it, this) }
     }
 
     private fun updateSendingResult(sendingResult: Boolean) {
-        if (sendingResult) {
-            binding.sendLoading.setText("Successfully sent the file!")
+        binding.sendLoading.text = if (sendingResult) {
+            "Successfully sent the file!"
         } else {
-            binding.sendLoading.setText("Failed to send the file, please try again later.")
+            "Failed to send the file, please try again later."
         }
     }
 }
