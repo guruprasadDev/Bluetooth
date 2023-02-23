@@ -5,11 +5,11 @@ import java.io.File
 
 class BluetoothConnectionHelper {
     companion object {
-        const val MEDIA_TYPE_UNKNOWN = 0
-        const val MEDIA_TYPE_IMAGE = 1
-        const val MEDIA_TYPE_VIDEO = 2
-        const val MEDIA_TYPE_PDF = 3
-        const val MEDIA_TYPE_AUDIO = 4
+        private const val MEDIA_TYPE_UNKNOWN = 0
+        private const val MEDIA_TYPE_IMAGE = 1
+        private const val MEDIA_TYPE_VIDEO = 2
+        private const val MEDIA_TYPE_PDF = 3
+        private const val MEDIA_TYPE_AUDIO = 4
 
         fun isExternalStorageWritable(): Boolean {
             val state = Environment.getExternalStorageState()
@@ -29,9 +29,9 @@ class BluetoothConnectionHelper {
 
         private fun getFileType(fileName: String): Int {
             var extension: String? = null
-            val i = fileName.lastIndexOf('.')
-            if (i > 0) {
-                extension = fileName.substring(i+1)
+            val lastDotIndex = fileName.lastIndexOf('.')
+            if (lastDotIndex > 0) {
+                extension = fileName.substring(lastDotIndex + 1)
             }
             if (extension == null) {
                 return MEDIA_TYPE_UNKNOWN
