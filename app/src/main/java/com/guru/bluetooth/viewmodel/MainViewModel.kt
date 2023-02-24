@@ -12,10 +12,10 @@ import androidx.core.app.ActivityCompat
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import com.guru.bluetooth.helper.PermissionsHelper
 import com.guru.bluetooth.utils.Constants.REQUEST_ENABLE_BT
 
-
-class MainViewModel : ViewModel() {
+class MainViewModel(private val context: Context) : ViewModel() {
     private val _showToast = MutableLiveData<String>()
     val showToast: LiveData<String> = _showToast
     private val _deviceList = MutableLiveData<List<BluetoothDevice>>()
@@ -24,9 +24,11 @@ class MainViewModel : ViewModel() {
         _showToast.postValue(message)
     }
 
-    fun enableBluetooth(context: Context) {
-        val bluetoothAdapter =
-            (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+    fun enableBluetooth() {
+        val bluetoothManager =
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        val bluetoothAdapter = bluetoothManager.adapter
+
         if (bluetoothAdapter == null) {
             updateToastMessage("This device does not support Bluetooth")
         }
@@ -35,13 +37,20 @@ class MainViewModel : ViewModel() {
             updateToastMessage("Bluetooth enabled")
         } else {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            if (ActivityCompat.checkSelfPermission(
+            if (!PermissionsHelper.PermissionGranted.isPermissionGranted(
                     context,
                     Manifest.permission.BLUETOOTH_CONNECT
-                ) != PackageManager.PERMISSION_GRANTED
-            )
-            (context as? Activity)?.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT)
+                )
+            ) {
+                if (ActivityCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.BLUETOOTH_CONNECT
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    return
+                }
+                (context as? Activity)?.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT)
+            }
         }
     }
 }
-

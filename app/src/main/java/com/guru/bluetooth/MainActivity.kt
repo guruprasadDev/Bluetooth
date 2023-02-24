@@ -21,6 +21,7 @@ import com.guru.bluetooth.extensions.showToast
 import com.guru.bluetooth.helper.PermissionsHelper
 import com.guru.bluetooth.server.BluetoothServerController
 import com.guru.bluetooth.viewmodel.MainViewModel
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -33,7 +34,6 @@ class MainActivity : AppCompatActivity() {
     private var isInScanningMode: Boolean = false
     private lateinit var adapter: ArrayAdapter<String>
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -43,7 +43,7 @@ class MainActivity : AppCompatActivity() {
         viewModel.showToast.observe(this, { message ->
             showToast(message)
         })
-        viewModel.enableBluetooth(this)
+        viewModel.enableBluetooth()
 
         bluetoothAdapter = (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
 
@@ -176,7 +176,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun launchEnableDiscoverableActivity() {
         val enableDiscoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
-        enableDiscoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+        enableDiscoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, DISCOVERABLE_DURATION_5_MINUTES)
         enableDiscoverable.launch(enableDiscoverableIntent)
     }
 
@@ -207,7 +207,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun enterScanningMode() {
         if (isInScanningMode) {
-            exitScanningMode()
+            exitScanningMode(this)
         } else {
             if (bluetoothAdapter?.isEnabled == false) {
                 bluetoothAdapter?.enable()
@@ -215,10 +215,13 @@ class MainActivity : AppCompatActivity() {
 
             val discoverableIntent: Intent =
                 Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300) //300 sec = 5 mins
+                    putExtra(
+                        BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,
+                        DISCOVERABLE_DURATION_5_MINUTES
+                    )
                 }
             startActivity(discoverableIntent)
-            BluetoothConnectionService().startServer()
+            BluetoothConnectionService().startServer(this)
 
             changeTextToConnected(binding.statusTitle)
             isInScanningMode = true
@@ -226,8 +229,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun exitScanningMode() {
-        BluetoothServerController().cancel()
+    private fun exitScanningMode(context: Context) {
+        BluetoothServerController(context).cancel()
         bluetoothAdapter?.cancelDiscovery()
 
         binding.mainSelectUserList.adapter = null
@@ -241,4 +244,9 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(receiver)
         unregisterReceiver(nameReceiver)
     }
+
+    companion object {
+        private val DISCOVERABLE_DURATION_5_MINUTES = TimeUnit.MINUTES.convert(300, TimeUnit.SECONDS)
+    }
 }
+

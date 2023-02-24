@@ -14,20 +14,19 @@ class BluetoothConnectionService {
         var isFileTransferSuccessful = false
     }
 
-    fun startServer() {
-        BluetoothServerController().start()
+    fun startServer(context: Context) {
+        BluetoothServerController(context).start()
     }
 
     fun startClient(device: BluetoothDevice, uri: String, context: Context): Boolean {
         fileURI = uri
-        try {
+        return try {
             val bluetoothClient = BluetoothClient(context, device)
             bluetoothClient.start()
             bluetoothClient.join()
-            isFileTransferSuccessful = true
+            true // file transfer successful
         } catch (e: InterruptedException) {
-            Toast.makeText(context, "Error occurred: ${e.message}", Toast.LENGTH_SHORT).show()
+            false // file transfer failed
         }
-        return isFileTransferSuccessful
     }
 }

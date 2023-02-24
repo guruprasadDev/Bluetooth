@@ -17,8 +17,8 @@ class FileSenderActivity : AppCompatActivity() {
 
         val device: BluetoothDevice? = getBluetoothDeviceFromIntent(intent)
         val fileURI: String? = getFileUriFromIntent(intent)
-        val sendingResult: Boolean? = device?.let { startBluetoothClient(it, fileURI) }
-        sendingResult?.let { updateSendingResult(it) }
+       // val sendingResult: Boolean = device?.let { startBluetoothClient(it, fileURI) } ?: false
+      //  updateSendingResult(sendingResult)
     }
 
     private fun getBluetoothDeviceFromIntent(intent: Intent): BluetoothDevice? {
@@ -29,8 +29,8 @@ class FileSenderActivity : AppCompatActivity() {
         return intent.getStringExtra(EXTRA_MESSAGE)
     }
 
-    private fun startBluetoothClient(device: BluetoothDevice, fileUri: String?): Boolean? {
-        return fileUri?.let { BluetoothConnectionService().startClient(device, it, this) }
+    private fun startBluetoothClient(device: BluetoothDevice, fileUri: String): Boolean {
+        return BluetoothConnectionService().startClient(device, fileUri, this)
     }
 
     private fun updateSendingResult(sendingResult: Boolean) {

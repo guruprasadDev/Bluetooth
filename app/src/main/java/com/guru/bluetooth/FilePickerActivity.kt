@@ -61,47 +61,55 @@ class FilePickerActivity : AppCompatActivity() {
     }
 
     private fun sendFile() {
-        if (fileURI == null) {
-            showToast("Please choose a file first")
+        fileURI?.let { showSendFileAlertDialog(it) } ?: showToast("Please choose a file first")
+    }
+
+    private fun showSendFileAlertDialog(fileURI: String) {
+        val alertDialog = createAlertDialog(
+            this,
+            "Confirmation",
+            "Are you sure want to send this file?",
+            "Send",
+            "Cancel",
+            { _, _ -> sendFileLessThen5Mb(fileURI) },
+            { _, _ -> showToast("Cancelled the file sending process") }
+        )
+        alertDialog.show()
+    }
+
+    private fun showLargeFileSizeError() {
+        val alertDialog = createAlertDialog(
+            this,
+            "File too large",
+            "This file is larger than the 5MB Limit",
+            "OK",
+            "",
+            DialogInterface.OnClickListener { _, _ -> showToast("File sending failed") },
+            null
+        )
+        alertDialog.show()
+    }
+
+    private fun checkIfFileIsLessThan5Mb(fileURI: String): Boolean {
+        val fiveMB = 1024 * 1024 * 5
+        val file = File(fileURI)
+        return file.readBytes().size < fiveMB
+    }
+
+    private fun sendFileLessThen5Mb(fileURI: String) {
+        if (checkIfFileIsLessThan5Mb(fileURI)) {
+            device?.let { sendFileToReceiver(it, fileURI) }
         } else {
-            val alertDialog = createAlertDialog(
-                this,
-                "Confirmation",
-                "Are you sure want to send this file?",
-                "Send",
-                "Cancel",
-                { _, _ -> fileURI?.let { sendFileIfSizeIsLessThan5MB(it) } },
-                { _, _ -> showToast("Cancelled the file sending process") }
-            )
-            alertDialog.show()
+            showLargeFileSizeError()
         }
     }
 
-    private fun sendFileIfSizeIsLessThan5MB(fileURI: String) {
-        val fiveMB = 1024 * 1024 * 5
-        val file = File(fileURI)
 
-        fun sendFileToReceiver(device: BluetoothDevice, fileURI: String) {
-            val intent = Intent(this, FileSenderActivity::class.java)
-            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
-            intent.putExtra(AlarmClock.EXTRA_MESSAGE, fileURI)
-            startActivity(intent)
-        }
-
-        if (file.readBytes().size > fiveMB) {
-            val alertDialog = createAlertDialog(
-                this,
-                "File too large",
-                "This file is larger than the 5MB Limit",
-                "OK",
-                "",
-                DialogInterface.OnClickListener { _, _ -> showToast("File sending failed") },
-                null
-            )
-            alertDialog.show()
-        } else {
-            device?.let { sendFileToReceiver(it, fileURI) }
-        }
+    private fun sendFileToReceiver(device: BluetoothDevice, fileURI: String) {
+        val intent = Intent(this, FileSenderActivity::class.java)
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
+        intent.putExtra(AlarmClock.EXTRA_MESSAGE, fileURI)
+        startActivity(intent)
     }
 
     private val getContent =

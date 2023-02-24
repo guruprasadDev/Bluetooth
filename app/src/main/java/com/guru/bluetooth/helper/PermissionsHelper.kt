@@ -1,6 +1,7 @@
 package com.guru.bluetooth.helper
 
 import android.app.Activity
+import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -26,6 +27,11 @@ class PermissionsHelper(private val activity: Activity) {
             if (!ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)) {
                 ActivityCompat.requestPermissions(activity, arrayOf(permission), requestCode)
             }
+        }
+    }
+    object PermissionGranted {
+        fun isPermissionGranted(context: Context, permission: String): Boolean {
+            return ActivityCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
         }
     }
 }
