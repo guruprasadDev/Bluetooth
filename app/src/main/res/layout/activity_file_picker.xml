@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".FilePickerActivity">
+
+    <TextView
+        android:id="@+id/fileSelectorTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/small_20dp"
+        android:layout_marginTop="@dimen/small_20dp"
+        android:layout_marginEnd="@dimen/small_20dp"
+        android:text="@string/choose_a_file_to_send"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/deviceInfoNameTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/device"
+        android:textSize="@dimen/text_size_18sp"
+        app:layout_constraintEnd_toStartOf="@+id/deviceInfoNameValue"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/fileSelectorTitle" />
+
+    <TextView
+        android:id="@+id/deviceInfoNameValue"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text=""
+        android:textSize="@dimen/text_size_16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/deviceInfoNameTitle"
+        app:layout_constraintTop_toBottomOf="@+id/fileSelectorTitle" />
+
+    <TextView
+        android:id="@+id/fileInfoNameTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/choose_a_file"
+        android:textSize="@dimen/text_size_18sp"
+        app:layout_constraintEnd_toStartOf="@+id/fileInfoNameValue"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/deviceInfoNameValue" />
+
+    <TextView
+        android:id="@+id/fileInfoNameValue"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/small_8dp"
+        android:text=""
+        android:textSize="@dimen/text_size_16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/fileInfoNameTitle"
+        app:layout_constraintTop_toBottomOf="@+id/deviceInfoNameValue" />
+
+    <Button
+        android:id="@+id/fileSelectButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/small_20dp"
+        android:layout_marginTop="@dimen/normal_32dp"
+        android:layout_marginEnd="@dimen/small_20dp"
+        android:background="@color/purple_500"
+        android:text="@string/choose_file"
+        android:textColor="@android:color/white"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/fileInfoNameValue" />
+
+    <Button
+        android:id="@+id/fileSelectorSend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/small_20dp"
+        android:layout_marginEnd="@dimen/small_20dp"
+        android:layout_marginBottom="@dimen/small_20dp"
+        android:layout_weight="1"
+        android:background="@color/purple_500"
+        android:text="@string/send_file_txt"
+        android:textColor="@android:color/white"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
